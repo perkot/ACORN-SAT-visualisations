@@ -1,5 +1,5 @@
 ---
-title: "Animated visualisation of 100 years of Australian temperature data via the ACORN-SAT dataset"
+title: "Animated visualisatios of 100 years of Australian temperature data via the ACORN-SAT dataset"
 author: "Tom Perkins"
 date: "19/02/2020"
 output: html_document
@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # The Data
 
-In a [previous analysis](https://perkot.github.io/ACORN-SAT-Climate-Data/), I explored publicly available data from the [Bureau of Meteorology](http://www.bom.gov.au/climate/data/acorn-sat/#tabs=ACORN%E2%80%90SAT) to examine change in Australian temperatures. Here, we extend upon this data using gganimate to create three dynamic plots
+In a [previous analysis](https://perkot.github.io/ACORN-SAT-Climate-Data/), I explored publicly available data from the [Bureau of Meteorology](http://www.bom.gov.au/climate/data/acorn-sat/#tabs=ACORN%E2%80%90SAT) to examine change in Australian temperatures over the past 100 years. In this page we will utilize the power off ggplot2 to visualise the data
 
 Let's load our dependencies 
 
@@ -31,16 +31,154 @@ require(kableExtra)
 & read-in the pre-cleaned temperature data from the previous kernel 
 
 ```{r function to data, results='hide', message=FALSE, warning=FALSE}
-tbl <- read.csv("ACORN-SAT-Clean.csv")
+tbl <- read.csv("/Users/perkot/GIT/data/ACORN-SAT-Clean.csv")
 ```
 
 ```{r print table preview, echo=FALSE}
-#kable formats tables much more nicely 
-kable(head(tbl))%>% #head limits to just top rows
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive", font_size = 8))
+# Print table 
+tbl %>% 
+  select(site.name , 
+         date, 
+         minimum.temperature..degC., 
+         maximum.temperature..degC., 
+         Year) %>%
+  top_n(20) %>% 
+  kable() %>% #head limits to just top rows
+  kable_styling(bootstrap_options = c("striped", 
+                                      "hover", 
+                                      "condensed", 
+                                      "responsive", 
+                                      font_size = 8))
 ```
 
-Before beginning, if using a mac, you may want to consult [this resource](https://www.youtube.com/watch?v=VfLRhPEuYDc) to do some required set-up in Terminal. Otherwise, we should be good-to-go.
+If using a mac, you may encounter some teething issues rendering visualizations with gganimate. [This resource](https://www.youtube.com/watch?v=VfLRhPEuYDc) provides a guide of steps to troubleshoot in terminal. Otherwise, we should be good-to-go.
+
+# Monthly avg maximum temperatures
+
+## Animated by year 
+
+In the below step, I create customer colour palettes to give full manual control of which colours are assigned to which element in the visualisation (in the below example, state of Australia)
+
+```{r colour themes}
+# color themes 
+state.colors.gradient.2 <- 
+  c("NT" = "#993B37", 
+    "TAS" = "#7AA2BE", 
+    "VIC" = "#4EA599",  
+    "SA" = "#E1A345", 
+    "NSW" = "#D2AF47", 
+    "WA" = "#C88370", 
+    "QLD" = "#CA6A33") 
+
+state.colors.gradient.3 <- 
+  c("NT" = "#993B37", 
+    "TAS" = "#7AA2BE", 
+    "VIC" = "#4ea58e",  
+    "SA" = "#e3963d", 
+    "NSW" = "#D2AF47", 
+    "WA" = "#d97529", 
+    "QLD" = "#c95042") 
+```
+
+To avoid repetition in our code, we can pre-save some of the custom theme elements to call in each visualisation (i.e. font sizes, font colours, legend formatting)
+
+```{r plot themes}
+# Themes for plot visualisations 
+theme_plot <-
+  theme(
+    plot.title = element_text(size = 14, hjust = 0, colour = "#4E4F4E", face = "bold"),
+    plot.subtitle = element_text(size = 12, hjust = 0, colour = "#4E4F4E"),
+    axis.title = element_text(size = 12, colour = "#4E4F4E"),
+    legend.title = element_text(size = 12, colour = "#4E4F4E"),
+    axis.text = element_text(size = 12, colour = "#4E4F4E"),
+    panel.background = element_rect(fill = "#fcf9f0",
+                                    colour = "#fcf9f0"),
+    plot.background = element_rect(fill = "#fcf9f0",
+                                   colour = "#fcf9f0"))
+
+theme_plot_2 <-
+  theme(
+    plot.title = element_text(size = 12, hjust = 0, colour = "#4E4F4E", face = "bold"),
+    plot.subtitle = element_text(size = 10, hjust = 0, colour = "#4E4F4E"),
+    axis.title = element_text(size = 9, colour = "#4E4F4E"),
+    legend.title = element_text(size = 10, hjust = 0.5, colour = "#4E4F4E"),
+    axis.text = element_text(size = 9, colour = "#4E4F4E"),
+    panel.background = element_rect(fill = "#fcf9f0",
+                                    colour = "#fcf9f0"),
+    plot.background = element_rect(fill = "#fcf9f0",
+                                   colour = "#fcf9f0"))
+```
+
+For the first visualization, the average maximum temperature will be visualized for each state of Australia. This will be animated over each decade from 1900 up to 2010 
+
+As such the first required step is to group the dataframe by both state and decade, summarizing by the mean maximum temperature
+
+```{r variable clean}
+# Create table
+temp.max3C <- tbl %>% 
+  group_by(State, Era) %>% 
+  filter(Era != 2019) %>% 
+  summarise(avgmax = mean(maximum.temperature..degC., na.rm = TRUE))
+
+# as character
+temp.max3C$Era <- as.character(temp.max3C$Era)
+# remove s
+temp.max3C$Era = substr(temp.max3C$Era,1,nchar(temp.max3C$Era)-1)
+# to numeric
+temp.max3C$Era <- as.numeric(temp.max3C$Era)
+```
+
+### All Seasons
+
+create plot
+
+```{r create plot}
+# PLOT
+state.plot.2 <- 
+  ggplot(temp.max3C, aes(Era, avgmax, group = State, color = State)) + 
+  geom_line(size = 1.6) + 
+  geom_segment(aes(xend = 2018, yend = avgmax), linetype = 2, colour = 'grey') + 
+  geom_point(size = 8) + 
+  geom_text(aes(x = 2018, label = State, size = 16), hjust = 0) + 
+  scale_colour_manual(values = state.colors.gradient.2) +
+  coord_cartesian(clip = 'off') + 
+  labs(title = 'Average daily-maximum temperature in Australia over the past 100 years',
+       subtitle = 'Separated by State',
+       caption  = "Data Source: ACORN-SAT",
+       y = 'Temperature (°C)',
+       X = "Year") +
+  theme_minimal() + 
+  theme(legend.position = "none") +
+  theme(plot.margin = margin(5.5, 40, 5.5, 5.5)) + 
+  theme_plot +
+  transition_reveal(Era) 
+```
+
+Animate plot
+
+```{r animate plot}
+# ANIMATE PLOT
+state.plot.2.anim <-
+animate(state.plot.2,
+        end_pause = 80,
+        fps = 30,
+        nframe = 240,
+        height = 1024,
+        width = 768)
+```
+
+```{r save plot, results='hide', message=FALSE, warning=FALSE, echo=FALSE}
+# SAVE PLOT 
+anim_save("state.plot.2.anim.gif",
+          state.plot.2.anim,
+          width = 4000, 
+          height = 4000)
+```
+
+Show
+
+![Show](state.plot.2.anim.gif)
+
 
 # Plot [1]
 
@@ -126,21 +264,26 @@ temp.max3 <- tbl %>%
   group_by(Month, Era) %>% 
   filter(Era != 2019) %>% 
   summarise(avgmax = mean(maximum.temperature..degC., na.rm = TRUE))
+```
 
+```{r month convert}
 # Convert numeric months to text 
-temp.max3[temp.max3=="12"] <- "December"
-temp.max3[temp.max3=="1"] <- "January"
-temp.max3[temp.max3=="2"] <- "February"
-temp.max3[temp.max3=="3"] <- "March"
-temp.max3[temp.max3=="4"] <- "April"
-temp.max3[temp.max3=="5"] <- "May"
-temp.max3[temp.max3=="6"] <- "June"
-temp.max3[temp.max3=="7"] <- "July"
-temp.max3[temp.max3=="8"] <- "August"
-temp.max3[temp.max3=="9"] <- "September"
-temp.max3[temp.max3=="10"] <- "October"
-temp.max3[temp.max3=="11"] <- "November"
+temp.max3$Month[temp.max3$Month=="1"] <- "January"
+temp.max3$Month[temp.max3$Month=="2"] <- "February"
+temp.max3$Month[temp.max3$Month=="3"] <- "March"
+temp.max3$Month[temp.max3$Month=="4"] <- "April"
+temp.max3$Month[temp.max3$Month=="5"] <- "May"
+temp.max3$Month[temp.max3$Month=="6"] <- "June"
+temp.max3$Month[temp.max3$Month=="7"] <- "July"
+temp.max3$Month[temp.max3$Month=="8"] <- "August"
+temp.max3$Month[temp.max3$Month=="9"] <- "September"
+temp.max3$Month[temp.max3$Month=="10"] <- "October"
+temp.max3$Month[temp.max3$Month=="11"] <- "November"
+temp.max3$Month[temp.max3$Month=="12"] <- "December"
 
+```
+
+```{r conversions}
 # as character
 temp.max3$Era <- as.character(temp.max3$Era)
 # remove s
